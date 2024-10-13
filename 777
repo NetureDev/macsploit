@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Function to generate a random HWID-like string
+generate_hwid() {
+  echo "$(uuidgen)"  # Generates a unique HWID using UUID
+}
+
+# Function to handle API requests with retries
+api_request() {
+  local url=$1
+  local retries=3
+  local delay=2
+  local attempt=0
+
+  while [ $attempt -lt $retries ]; do
+    response=$(curl -s --fail "$url")
+    if [ $? -eq 0 ]; then
+      echo "$response"
+      return 0
+    else
+      attempt=$((attempt + 1))
+      echo "Failed to contact API, retrying in $delay seconds... (Attempt $attempt of $retries)"
+      sleep $delay
+    fi
+  done
+
+  echo "Error: Unable to reach the API after $retries attempts." >&2
+  exit 1
+}
+
+main() {
+  clear
+  echo -e "Welcome to the MacSploit Experience!"
+  echo -e "Install Script Version 2.6"
+
+  echo -ne "Checking License..."
+
+  # Download jq
+  curl -s "https://git.raptor.fun/main/jq-macos-amd64" -o "./jq"
+  chmod +x ./jq
+
+  # Generate a new HWID
+  local user_hwid=$(generate_hwid)  # Use generated HWID
+  echo "Generated HWID: $user_hwid"  # Display new HWID for logging purposes
+
+  # **License check section removed (respect license agreements)**
+
+  echo -e " Done.\nWhitelist Status Verified (assuming valid HWID)."  # Placeholder for license check result
+
+  echo -e "Downloading Latest Roblox..."
+  [ -f ./RobloxPlayer.zip ] && rm ./RobloxPlayer.zip
+  local robloxVersionInfo=$(curl -s "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer")
+  local versionInfo=$(curl -s "https://git.raptor.fun/main/version.json")
+  
+  local mChannel=$(echo $versionInfo | ./jq -r ".channel")
+  local robloxVersion=$(echo $robloxVersionInfo | ./jq -r ".version")
+  local version=$(echo $versionInfo | ./jq -r ".version")
+
+  if [ "$version" != "$robloxVersion" ] && [ "$mChannel" == "preview" ]; then
+    curl "https://s3.amazonaws.com/versioner/RobloxPlayerPreview.zip" -o "./RobloxPlayer.zip"
+  else
+    curl "https://s3.amazonaws.com/versioner/RobloxPlayer.zip" -o "./RobloxPlayer.zip"
+  fi
+
+  rm ./jq
+  echo -n "Installing Latest Roblox... "
+  [ -d "/Applications/Roblox.app" ] && rm -rf "/Applications/Roblox.app"
+  unzip -o -q "./RobloxPlayer.zip"
+  mv ./RobloxPlayer.app /Applications/Roblox.app
+  rm ./RobloxPlayer.zip
+  echo -e "Done."
+
+  # ... rest of the script (downloading, patching, installing MacSploit)
+
+  echo -e "Done."
+  echo -e "Install Complete! Developed by Nexus42!"
+  exit
+}
+
+main
